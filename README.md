@@ -5,9 +5,13 @@ Recreación del clásico juego Arkanoid, desarrollada con JavaScript puro (vanil
 
 📁 ESTRUCTURA DEL PROYECTO
 arkanoid/
+
 ├── index.html         # Estructura principal de la página
+
 ├── style.css          # Estilos básicos del canvas y el entorno
+
 └── script.js          # Lógica completa del juego
+
 
 🚀 ¿CÓMO EJECUTARLO?
 1. Clona o descarga este repositorio.
