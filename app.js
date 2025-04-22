@@ -11,6 +11,9 @@ const $bricks = document.querySelector("#bricks");
 canvas.width = 448;
 canvas.height = 400;
 
+// Se recupera la etiqueta button del HTML
+const $startBtn = document.querySelector("#startBtn");
+
 // VARIABLES DEL JUEGO
 // Variables de la pelota
 const ballRadius = 3; //Radio de la pelota
