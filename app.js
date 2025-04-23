@@ -115,6 +115,14 @@ function drawUI() {
   ctx.fillText(`FPS: ${framesPerSec}`, 5, 10);
 }
 
+// Función que muestra mensaje de "GAME OVER"
+function showGameOver() {
+  ctx.font = "32px Arial";
+  ctx.fillStyle = "red";
+  ctx.textAlign = "center";
+  ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
+}
+
 // LÓGICA DEL JUEGO
 
 // Función de colisiones de ladrillos
@@ -164,8 +172,8 @@ function ballMovement() {
     y + dy > paddleY + paddleHeight
   ) {
     gameOver = true;
-    console.log("Game Over");
-    document.location.reload(); // Reinicia el Juego
+    showGameOver(); // Muestra el mensaje en el canvas
+    $startBtn.textContent = "Reiniciar juego";
   }
 
   // mover la pelota
@@ -235,7 +243,11 @@ let gameOver = false;
 
 // Funcion de animación o de dibujo, base para cualquier video juego
 function draw() {
-  if (gameOver) return;
+  if (gameOver) {
+    cleanCanvas();      // Limpia el canvas
+    showGameOver();     // Muestra solo el mensaje
+    return;             // No se dibuja nada más
+  }
 
   window.requestAnimationFrame(draw);
 
@@ -271,5 +283,9 @@ ballMovement();
 paddleMovement();
 }
 
-draw(); // Inicio la animación
-initEvents(); // Inicio de controles
+function startGame (){
+  draw(); // Inicio la animación
+  initEvents(); // Inicio de controles
+}
+
+$startBtn.addEventListener("click", startGame);
