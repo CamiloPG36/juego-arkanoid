@@ -14,6 +14,12 @@ canvas.height = 400;
 // Se recupera la etiqueta button del HTML
 const $startBtn = document.querySelector("#startBtn");
 
+// Guarda el ID del frame de animación actual para poder cancelarlo si es necesario (por ejemplo, al reiniciar el juego)
+let animationFrameId = null;
+
+// Bandera para asegurarse de que los eventos de teclado se inicialicen solo una vez y no se acumulen en cada clic
+let eventsInitialized = false;
+
 // VARIABLES DEL JUEGO
 // Variables de la pelota
 const ballRadius = 3; //Radio de la pelota
@@ -66,7 +72,7 @@ for (let c = 0; c < brickColumnCount; c++) {
 }
 
 // VISUALIZACIÓN DE LOS ELEMENTOS DEL JUEGO EN EL CANVAS
-// Función para dibujar la BOLA
+// Función para dibujar la PELOTA
 function drawBall() {
   ctx.beginPath(); // iniciar el trazado
   ctx.arc(x, y, ballRadius, 0, Math.PI * 2); // Dibuja un círculo
@@ -122,6 +128,48 @@ function showGameOver() {
   ctx.textAlign = "center";
   ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
 }
+
+// Función para reiniciar variables cuando la pelota toca el suelo
+function resetGameVariables() {
+  cleanCanvas(); // Limpia el canvas
+
+  // Posición inicial de la pelota
+  x = canvas.width / 2;
+  y = canvas.height - 30;
+
+  // Velocidad inicial
+  dx= -3;
+  dy = -3;
+
+  // Paleta al centro
+  paddleX = (canvas.width - paddleWidth) / 2;
+
+  // Reconstruir ladrillos
+  buildBricks();
+
+  // Reiniciar estado del juego
+  gameOver = false;
+}
+
+// Función para construir ladrillos
+function buildBricks() {
+  // Vaciar contenido del array
+  for (let c = 0; c < brickColumnCount; c++) {
+    bricks[c] = []; // Reinicio de columnas
+    for (let r = 0; r < brickRowCount; r++) {
+      const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
+      const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
+      const random = Math.floor(Math.random() * 8);
+      bricks[c][r] = {
+        x: brickX,
+        y: brickY,
+        status: BRICK_STATUS.ACTIVE,
+        color: random,
+      };
+    }
+  }
+}
+
 
 // LÓGICA DEL JUEGO
 
@@ -249,7 +297,7 @@ function draw() {
     return;             // No se dibuja nada más
   }
 
-  window.requestAnimationFrame(draw);
+  animationFrameId = requestAnimationFrame(draw);
 
   const msNow = window.performance.now();
   const msPassed = msNow - msPrev;
@@ -275,7 +323,7 @@ cleanCanvas();
 drawBall();
 drawPaddle();
 drawBricks();
-drawUI();
+// drawUI(); // Oculta el contador de FPS
 
 // LÓGICA DEL JUEGO
 collisionDetection();
@@ -284,8 +332,18 @@ paddleMovement();
 }
 
 function startGame (){
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId); // Evita que se duplique la animación
+  }
+
+  if (gameOver) {
+    resetGameVariables(); // Reinicia las variables si el juego ya terminó
+  }
   draw(); // Inicio la animación
-  initEvents(); // Inicio de controles
+  if (!eventsInitialized) {
+    initEvents(); // Solo la primera vez
+    eventsInitialized = true;
+  }
 }
 
 $startBtn.addEventListener("click", startGame);
