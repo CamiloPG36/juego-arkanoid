@@ -1,17 +1,31 @@
+// ===============================
 // CONFIGURACIÓN INICIAL
+// ===============================
+
 // Se recupera el Canvas del HTML y se define el contexto del tablero
 const canvas = document.querySelector("canvas");
 const ctx = canvas.getContext("2d"); // Plano 2D
 
-// Se recuperan las imágenes desde el HTML
+// Imágenes desde el HTML
 const $sprite = document.querySelector("#sprite");
 const $bricks = document.querySelector("#bricks");
 
-// Se define el tamaño del Canvas
+// Botón inicio
+const $startBtn = document.querySelector("#startBtn");
+
+// Tamaño del Canvas
 canvas.width = 448;
 canvas.height = 400;
 
+// ===============================
 // VARIABLES DEL JUEGO
+// ===============================
+
+// Variables de animación
+let animationFrameId = null;
+let eventsInitialized = false;
+let gameOver = false;
+
 // Variables de la pelota
 const ballRadius = 3; //Radio de la pelota
 let x = canvas.width / 2; // Posición inicial horizontal
@@ -36,34 +50,31 @@ const brickHeight = 16;
 const brickPadding = 0;
 const brickOffsetTop = 80;
 const brickOffsetLeft = 16;
-const bricks = [];
+
 const BRICK_STATUS = {
   ACTIVE: 1,
   DESTROYED: 0,
 };
 
-// Inicialización del arreglo de los ladrillos
-// Se Crea la estructura de los ladrillos (filas y columnas)
-for (let c = 0; c < brickColumnCount; c++) {
-  bricks[c] = []; // Se inicializa una columna como un array vacio
-  for (let r = 0; r < brickRowCount; r++) {
-    // Se calcula la posicion de cada ladrillo en el canvas
-    const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
-    const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
-    // Se asigna un color aleatorio a cada ladrillo entre 0 y 7 (8 opciones)
-    const random = Math.floor(Math.random() * 8);
-    // Se guarda la información de cada ladrillo en un arreglo
-    bricks[c][r] = {
-      x: brickX,
-      y: brickY,
-      status: BRICK_STATUS.ACTIVE,
-      color: random,
-    };
-  }
-}
+const bricks = []; // Matriz de ladrillos
 
-// VISUALIZACIÓN DE LOS ELEMENTOS DEL JUEGO EN EL CANVAS
-// Función para dibujar la BOLA
+// ===============================
+// CONFIGURACIÓN DE FPS
+// ===============================
+
+// Velocidad de fps para que renderice el juego
+const fps = 60;
+const msPerFrame = 1000 / fps;
+let msPrev = window.performance.now();
+let msFPSPrev = window.performance.now() + 1000;
+let frames = 0;
+let framesPerSec = fps;
+
+// ===============================
+// FUNCIONES DE DIBUJO
+// ===============================
+
+// Dibuja la PELOTA
 function drawBall() {
   ctx.beginPath(); // iniciar el trazado
   ctx.arc(x, y, ballRadius, 0, Math.PI * 2); // Dibuja un círculo
@@ -72,7 +83,7 @@ function drawBall() {
   ctx.closePath(); // terminar el trazado
 }
 
-// Función para dibujar la PALETA
+// Dibuja la PALETA
 function drawPaddle() {
   ctx.drawImage(
     $sprite, // imagen
@@ -86,7 +97,7 @@ function drawPaddle() {
   );
 }
 
-// Función para dibujar los LADRILLOS
+// Dibuja los LADRILLOS
 function drawBricks() {
   for (let c = 0; c < brickColumnCount; c++) {
     for (let r = 0; r < brickRowCount; r++) {
@@ -94,7 +105,6 @@ function drawBricks() {
       if (currentBrick.status === BRICK_STATUS.DESTROYED) continue;
 
       const clipX = currentBrick.color * 32;
-
       ctx.drawImage(
         $bricks,
         clipX, 0,
@@ -107,25 +117,24 @@ function drawBricks() {
   }
 }
 
-// Función de interfaz de FPS(Frames Per Second)
+// Dibujar FPS(Frames Per Second)
 function drawUI() {
   ctx.fillText(`FPS: ${framesPerSec}`, 5, 10);
 }
 
-// LÓGICA DEL JUEGO
+// ===============================
+// FUNCIONES DE LÓGICA DEL JUEGO
+// ===============================
 
-// Función de colisiones de ladrillos
+// Detecta colisiones entre pelota y ladrillos
 function collisionDetection() {
   for (let c = 0; c < brickColumnCount; c++) {
     for (let r = 0; r < brickRowCount; r++) {
       const currentBrick = bricks[c][r];
       if (currentBrick.status === BRICK_STATUS.DESTROYED) continue;
 
-      const isBallSameXAsBrick =
-        x > currentBrick.x && x < currentBrick.x + brickWidth;
-
-      const isBallSameYAsBrick =
-        y > currentBrick.y && y < currentBrick.y + brickHeight;
+      const isBallSameXAsBrick = x > currentBrick.x && x < currentBrick.x + brickWidth;
+      const isBallSameYAsBrick = y > currentBrick.y && y < currentBrick.y + brickHeight;
 
       if (isBallSameXAsBrick && isBallSameYAsBrick) {
         dy = -dy;
@@ -135,42 +144,40 @@ function collisionDetection() {
   }
 }
 
-// Función de movimiento de la pelota
+// Movimiento de la pelota
 function ballMovement() {
-  // Rebote lateral
-  if (x + dx > canvas.width - ballRadius || // la pared derecha
-    x + dx < ballRadius // la pared izquierda
-  ) {
+  // Rebote en paredes laterales
+  if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) { // 1:Pared der y 2:Pared izq
     dx = -dx;
   }
 
-  // Rebotar en la parte superior
+  // Rebote en la parte superior
   if (y + dy < ballRadius) {
     dy = -dy;
   }
 
-  // La pelota toca la paleta
+  // Colisión con la paleta
   const isBallSameXAsPaddle = x > paddleX && x < paddleX + paddleWidth;
   const isBallTouchingPaddle = y + dy > paddleY;
 
-  if (isBallSameXAsPaddle && isBallTouchingPaddle) {
-    dy = -dy; // Se cambia la dirección de la pelota
-  } else if (
-    // la pelota toca el suelo
-    y + dy > canvas.height - ballRadius ||
-    y + dy > paddleY + paddleHeight
-  ) {
+  // Detecta si la pelota toca el suelo (fin del juego)
+  if (y + dy > canvas.height - ballRadius || y + dy > paddleY + paddleHeight) {
     gameOver = true;
-    console.log("Game Over");
-    document.location.reload(); // Reinicia el Juego
+    showGameOver(); // Muestra el mensaje en el canvas
+    $startBtn.textContent = "Reiniciar juego";
   }
 
-  // mover la pelota
+  // Si la pelota toca la paleta, rebota
+  else if (isBallSameXAsPaddle && isBallTouchingPaddle) {
+    dy = -dy;
+  }
+
+  // Actualiza la posición de la pelota
   x += dx;
   y += dy;
 }
 
-// Función de movimiento de LA PALETA
+// Movimiento de LA PALETA
 function paddleMovement() {
   if (rightPressed && paddleX < canvas.width - paddleWidth) {
     paddleX += PADDLE_SENSITIVITY;
@@ -179,14 +186,70 @@ function paddleMovement() {
   }
 }
 
-// EVENTOS Y CONTROLES
-// Función para borrar el Canva en cada frame
+// ===============================
+// FUNCIONES DE CONTROL DEL JUEGO
+// ===============================
+
+// Inicializa la estructura de ladrillos
+function buildBricks() {
+  // Vaciar contenido del array
+  for (let c = 0; c < brickColumnCount; c++) {
+    bricks[c] = []; // Reinicio de columnas
+    for (let r = 0; r < brickRowCount; r++) {
+      const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
+      const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
+      const random = Math.floor(Math.random() * 8);
+      
+      bricks[c][r] = {
+        x: brickX,
+        y: brickY,
+        status: BRICK_STATUS.ACTIVE,
+        color: random,
+      };
+    }
+  }
+}
+
+// Reinicia variables cuando la pelota toca el suelo
+function resetGameVariables() {
+  cleanCanvas(); // Limpia el canvas
+
+  // Posición inicial de la pelota
+  x = canvas.width / 2;
+  y = canvas.height - 30;
+
+  // Velocidad inicial
+  dx= -3;
+  dy = -3;
+
+  // Paleta al centro
+  paddleX = (canvas.width - paddleWidth) / 2;
+
+  // Reconstruir ladrillos
+  buildBricks();
+
+  // Reiniciar estado del juego
+  gameOver = false;
+}
+
+// Limpia el canvas en cada frame
 function cleanCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-// Función para inicializar eventos
-// Manejo de teclado
+// Muestra mensaje de "GAME OVER"
+function showGameOver() {
+  ctx.font = "32px Arial";
+  ctx.fillStyle = "red";
+  ctx.textAlign = "center";
+  ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
+}
+
+// ===============================
+// EVENTOS DEL JUEGO
+// ===============================
+
+// Inicia eventos de teclado
 function initEvents() {
   document.addEventListener("keydown", keyDownHandler);
   document.addEventListener("keyup", keyUpHandler);
@@ -218,49 +281,43 @@ function initEvents() {
   }
 }
 
-// ANIMACIÓN DEL JUEGO (FPS)
-// Velocidad de fps para que renderice el juego
-const fps = 60;
+// ===============================
+// ANIMACIÓN PRINCIPAL
+// ===============================
 
-let msPrev = window.performance.now();
-let msFPSPrev = window.performance.now() + 1000;
-const msPerFrame = 1000 / fps;
-let frames = 0;
-let framesPerSec = fps;
-
-let gameOver = false;
-
-// Funcion de animación o de dibujo, base para cualquier video juego
+// Funcion de animación o de dibujo
 function draw() {
-  if (gameOver) return;
+  if (gameOver) {
+    cleanCanvas();      // Limpia el canvas
+    showGameOver();     // Muestra solo el mensaje
+    return;             // No se dibuja nada más
+  }
 
-  window.requestAnimationFrame(draw);
+  animationFrameId = requestAnimationFrame(draw);
 
   const msNow = window.performance.now();
   const msPassed = msNow - msPrev;
 
   if (msPassed < msPerFrame) return;
 
-  const excessTime = msPassed % msPerFrame;
-  msPrev = msNow - excessTime;
+  msPrev = msNow - (msPassed % msPerFrame);
 
   frames++;
-
   if (msFPSPrev < msNow) {
     msFPSPrev = window.performance.now() + 1000;
     framesPerSec = frames;
     frames = 0;
   }
 
-  // --- LIMPIAR EL CANVAS ---
-// Borra el contenido del frame anterior para evitar superposición de dibujos
+//LIMPIAR EL CANVAS
+// Evitar superposición de dibujos
 cleanCanvas();
 
 // DIBUJAR LOS ELEMENTOS VISUALES DEL JUEGO
 drawBall();
 drawPaddle();
 drawBricks();
-drawUI();
+// drawUI(); // Oculta el contador de FPS
 
 // LÓGICA DEL JUEGO
 collisionDetection();
@@ -268,5 +325,28 @@ ballMovement();
 paddleMovement();
 }
 
-draw(); // Inicio la animación
-initEvents(); // Inicio de controles
+// ===============================
+// INICIAR O REINICIAR JUEGO
+// ===============================
+
+function startGame (){
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId); // Evita que se duplique la animación
+  }
+
+  if (gameOver) {
+    resetGameVariables(); // Reinicia las variables si el juego ya terminó
+  }
+
+  if (!eventsInitialized) {
+    initEvents(); // Solo la primera vez
+    eventsInitialized = true;
+  }
+
+  draw(); // Inicio la animación
+}
+
+$startBtn.addEventListener("click", startGame);
+
+// Inicializa ladrillos al cargar
+buildBricks();
