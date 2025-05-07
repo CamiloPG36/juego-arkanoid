@@ -160,15 +160,19 @@ function ballMovement() {
   const isBallSameXAsPaddle = x > paddleX && x < paddleX + paddleWidth;
   const isBallTouchingPaddle = y + dy > paddleY;
 
-  if (isBallSameXAsPaddle && isBallTouchingPaddle) {
-    dy = -dy; // Se cambia la dirección de la pelota
-  } else if (y + dy > canvas.height - ballRadius || y + dy > paddleY + paddleHeight) { // Pelota toca el suelo
+  // Detecta si la pelota toca el suelo (fin del juego)
+  if (y + dy > canvas.height - ballRadius || y + dy > paddleY + paddleHeight) {
     gameOver = true;
     showGameOver(); // Muestra el mensaje en el canvas
     $startBtn.textContent = "Reiniciar juego";
   }
 
-  // Actualiza posición de la pelota
+  // Si la pelota toca la paleta, rebota
+  else if (isBallSameXAsPaddle && isBallTouchingPaddle) {
+    dy = -dy;
+  }
+
+  // Actualiza la posición de la pelota
   x += dx;
   y += dy;
 }
